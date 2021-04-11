@@ -1,65 +1,102 @@
-function dropdownmenu() {
-    d3.json("samples.json").then(function (data) {
+function buildMetadata(sample) {
+    d3.json("samples.json").then((data) => {
+      var metadata= data.metadata;
+      var resultsarray= metadata.filter(sampleobject => sampleobject.id == sample);
+      var result= resultsarray[0]
+      var PANEL = d3.select("#sample-metadata");
+      PANEL.html("");
+      Object.entries(result).forEach(([key, value]) => {
+        PANEL.append("h6").text(`${key}: ${value}`);
+      });
 
-        var samples = data.names
-        console.log(samples);
-        var id = d3.select("#selDataset")
-        samples.forEach(element => {
-            id.append("option").text(element).property("value", element)
-
-        });
-        buildtable(samples[0])
-    })
-}
-
-
-function buildtable(newid) {
-    d3.json("samples.json").then(function (data) {
-
-        var samples = data.metadata
-        // console.log(samples);
-        var id = d3.select("#sample-metadata")
-        var filteredData = samples.filter(x => x.id == newid)[0];
-        console.log(filteredData);
-
-        id.html("")
-
-        Object.entries(filteredData).forEach(([key, value]) => {
-            var row = id.append("tr");
-            row.append("td").html(key)
-            row.append("td").html(value)
-        });
+          
     });
-}
-function charts() {
-    d3.json("samples.json").then(function (data) {
-        var ids = data.samples[0].otu_ids;
-        var samples = data.samples[0].sample_values.slice(0,10);
-        console.log(samples);
+  }
 
-        var trace1 = {
-            type: "bar",
-            // name: "belly",
-            x: samples,
-            y: ids,
-            orientation:"h"
-        };
 
-        var data1 = [trace1];
+function buildCharts(sample) {
 
-        var layout = {
-            title: "Top 10 OTU",
-            margin: { t: 100, l: 175, r:100, b:30 }
-        };
-        Plotly.newPlot("bar", data1, layout);
-    })
+    d3.json("samples.json").then((data) => {
+    var samples= data.samples;
+    var resultsarray= samples.filter(sampleobject => sampleobject.id == sample);
+    var result= resultsarray[0]
+
+    var ids = result.otu_ids;
+    var labels = result.otu_labels;
+    var values = result.sample_values;
+
+
+    // Build a Bubble Chart 
+    var LayoutBubble = {
+      margin: { t: 0 },
+      xaxis: { title: "Id's" },
+      hovermode: "closest",
+      };
+
+      var DataBubble = [
+      {
+        x: ids,
+        y: values,
+        text: labels,
+        mode: "markers",
+        marker: {
+          color: ids,
+          size: values,
+          }
+      }
+    ];
+
+    Plotly.plot("bubble", DataBubble, LayoutBubble);
+
+    //  Build a bar Chart
     
-};
+    var bar_chart =[
+      {
+        y:ids.slice(0, 10).map(otuID => `OTU ${otuID}`).reverse(),
+        x:values.slice(0,10).reverse(),
+        text:labels.slice(0,10).reverse(),
+        type:"bar",
+        orientation:"h"
 
-function optionChanged(newid) {
-    buildtable(newid)
-    charts(newid)
+      }
+    ];
+
+    var barLayout = {
+      title: "Top 10 Biodiversity found in Belly Button",
+      margin: { t: 30, l: 150 }
+    };
+
+    Plotly.newPlot("bar", bar_chart, barLayout);
+  });
 }
-dropdownmenu()
-charts()
+   
+ 
+function init() {
+  // dropdown select element
+  var selector = d3.select("#selDataset");
 
+  // Use the list of sample names to populate the select options
+  d3.json("samples.json").then((data) => {
+    var sampleNames = data.names;
+    sampleNames.forEach((sample) => {
+      selector
+        .append("option")
+        .text(sample)
+        .property("value", sample);
+    });
+
+    // Use the first sample from the list to build the initial plots
+    const firstSample = sampleNames[0];
+    buildCharts(firstSample);
+    buildMetadata(firstSample);
+  });
+}
+
+function optionChanged(newSample) {
+  // Fetch new data each time a new sample is selected
+  buildCharts(newSample);
+  buildMetadata(newSample);
+}
+
+// Initialize the dashboard
+init();
